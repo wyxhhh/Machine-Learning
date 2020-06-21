@@ -1,12 +1,12 @@
 import torch
 from torch.autograd import Variable
-from torchvision import transforms
+
 from torch.utils.data import Dataset, DataLoader
 import numpy as np
 import os
 
 class TorchDataset():
-    def __init__(self, filename="train_labels.txt", data_dir="train", resize_height=None, resize_width=None, repeat=1):
+    def __init__(self, filename="train_labels.txt", data_dir="D:\\ml_dataset\\train", resize_height=None, resize_width=None, repeat=1):
         '''
         :param filename: 数据文件TXT：格式：imge_name.jpg label1_id labe2_id
         :param image_dir: 图片路径：image_dir+imge_name.jpg构成图片的完整路径
@@ -26,7 +26,7 @@ class TorchDataset():
         '''class torchvision.transforms.ToTensor'''
         # 把shape=(H,W,C)的像素值范围为[0, 255]的PIL.Image或者numpy.ndarray数据
         # 转换成shape=(C,H,W)的像素数据，并且被归一化到[0.0, 1.0]的torch.FloatTensor类型。
-        self.toTensor = transforms.ToTensor()
+        # self.toTensor = transforms.ToTensor()
 
         '''class torchvision.transforms.Normalize(mean, std)
         此转换类作用于torch. * Tensor,给定均值(R, G, B) 和标准差(R, G, B)，
@@ -41,8 +41,8 @@ class TorchDataset():
         # print(data_name, label)
         data_path = os.path.join(self.image_dir, data_name)
         data = self.load_data(data_path, self.resize_height, self.resize_width, normalization=False)
-        data = self.data_preproccess(data)
-        label = np.array(label)
+        # data = self.data_preproccess(data)
+        # label = np.array(label)
         return data, label
 
     def __len__(self):
@@ -63,7 +63,11 @@ class TorchDataset():
                 labels = []
                 for value in content[1:]:
                     labels.append(int(value))
-                image_label_list.append((name, labels))
+                label = [0. for i in range(10)]
+                for i in labels:
+                    label[i] = 1.
+                image_label_list.append((name, torch.FloatTensor(label)))
+        # print(image_label_list)
         return image_label_list
 
     def load_data(self, path, resize_height, resize_width, normalization):
@@ -80,7 +84,7 @@ class TorchDataset():
         for it in file_list:
             y = np.loadtxt(path + '/' + str(it), delimiter=',').reshape(1, 2048)
             l.append(y)
-        return np.array(l)
+        return np.array(l, dtype='float32')
 
     def data_preproccess(self, data):
         '''
@@ -88,16 +92,14 @@ class TorchDataset():
         :param data:
         :return:
         '''
-        data = self.toTensor(data)
+        # data = self.toTensor(data)
         return data
 
-batch_size = 1
-train_loader = TorchDataset(repeat=1)
+# train_loader = TorchDataset(repeat=1)
 # test_loader = DataLoader(dataset=test_data, batch_size=batch_size,shuffle=False)
 
-epoch_num = 2
-for epoch in range(epoch_num):
-    for batch_data, batch_label in train_loader:
-        data = batch_data[0,:]
-        print(data.shape, batch_label)
-
+# epoch_num = 2
+# for epoch in range(epoch_num):
+#     for batch_data, batch_label in train_loader:
+#         # data = batch_data[0,:]
+#         print(batch_data.shape, batch_label)
