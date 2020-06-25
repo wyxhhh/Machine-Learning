@@ -85,17 +85,18 @@ def test():
     y1 = []
     y2 = []
     for batch_idx, (data, label) in enumerate(tqdm(test_loader)):
-        bag_label = label
-        y.append([int(i) for i in bag_label[0]])
+        bag_label = label[0]
+        y.append([int(i) for i in bag_label])
         if args.cuda:
             data, bag_label = data.cuda(), bag_label.cuda()
         data, bag_label = Variable(data), Variable(bag_label)
         loss = model.calculate_objective(data, bag_label)
         test_loss += loss.data.item()
         _, predicted_label, out = model.calculate_classification_error(data, bag_label)
+        print(out)
         y1.append(predicted_label.detach().numpy())
         y2.append([int(i) for i in out])
-        print(out)
+        
 
     test_loss /= len(test_loader)
 
