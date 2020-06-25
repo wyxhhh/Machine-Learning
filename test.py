@@ -1,5 +1,3 @@
-from __future__ import print_function
-
 import numpy as np
 
 import argparse
@@ -11,11 +9,9 @@ from tqdm import tqdm
 
 from dataloader import TorchDataset, attentionDataset
 from model import Attention, GatedAttention
-#from sklearn import metrics
-#from sklearn.metrics import classification_report
+from sklearn import metrics
+from sklearn.metrics import classification_report
 
-
-# Training settings
 parser = argparse.ArgumentParser(description='PyTorch MNIST bags Example')
 parser.add_argument('--epochs', type=int, default=20, metavar='N',
                     help='number of epochs to train (default: 10)')
@@ -61,7 +57,7 @@ train_loader = data_utils.DataLoader(attentionDataset(),
                                      shuffle=True,
                                      **loader_kwargs)
 
-# test_loader = data_utils.DataLoader(MnistBags(target_number=args.target_number,
+test_loader = data_utils.DataLoader(attentionDataset(filename="test_labels.txt", data_dir="dataset/val"), batch_size=1, shuffle=True, **loader_kwargs)
 #                                               mean_bag_length=args.mean_bag_length,
 #                                               var_bag_length=args.var_bag_length,
 #                                               num_bag=args.num_bags_test,
@@ -75,75 +71,41 @@ print('Init Model')
 if args.model=='attention':
     model = Attention()
 elif args.model=='gated_attention':
-    model = GatedAttention()
+    # model = GatedAttention()
+    model = torch.load('models/ga1.pth')
 if args.cuda:
     model.cuda()
 
 optimizer = optim.Adam(model.parameters(), lr=args.lr, betas=(0.9, 0.999), weight_decay=args.reg)
 
-
-def train(epoch):
-    model.train()
-    train_loss = 0.
-    train_error = 0.
-    #loss = torch.nn.BCELoss()
-    for batch_idx, (data, label) in enumerate(tqdm(train_loader, ncols=80)):
-        bag_label = label[0]
+def test():
+    model.eval()
+    test_loss = 0.
+    y = []
+    y1 = []
+    y2 = []
+    for batch_idx, (data, label) in enumerate(tqdm(test_loader)):
+        bag_label = label
+        y.append([int(i) for i in bag_label[0]])
         if args.cuda:
             data, bag_label = data.cuda(), bag_label.cuda()
         data, bag_label = Variable(data), Variable(bag_label)
+        loss = model.calculate_objective(data, bag_label)
+        test_loss += loss.data.item()
+        _, predicted_label, out = model.calculate_classification_error(data, bag_label)
+        y1.append(predicted_label.detach().numpy())
+        y2.append([int(i) for i in out])
+        print(out)
 
-        # reset gradients
-        optimizer.zero_grad()
-        # calculate loss and metrics
-        loss = model.calculate_objective2(data, bag_label)
-        train_loss += loss.data.item()
-        error, _, _ = model.calculate_classification_error(data, bag_label)
-        train_error += error
-        # backward pass
-        loss.backward()
-        # step
-        optimizer.step()
+    test_loss /= len(test_loader)
 
-    # calculate loss and error for epoch
-    train_loss /= len(train_loader)
-    train_error /= len(train_loader)
-    torch.save(model, 'models/ga%i.pth'%(epoch))
-    print('Epoch: {}, Loss: {:.4f}, Train error: {:.4f}'.format(epoch, train_loss, train_error))
+    print('\nTest Set, Loss: {:.4f}'.format(test_loss))
 
-
-# def test():
-#     model.eval()
-#     test_loss = 0.
-#     test_error = 0.
-#     for batch_idx, (data, label) in enumerate(test_loader):
-#         bag_label = label[0]
-#         instance_labels = label[1]
-#         if args.cuda:
-#             data, bag_label = data.cuda(), bag_label.cuda()
-#         data, bag_label = Variable(data), Variable(bag_label)
-#         loss, attention_weights = model.calculate_objective(data, bag_label)
-#         test_loss += loss.data[0]
-#         error, predicted_label = model.calculate_classification_error(data, bag_label)
-#         test_error += error
-
-#         if batch_idx < 5:  # plot bag labels and instance labels for first 5 bags
-#             bag_level = (bag_label.cpu().data.numpy()[0], int(predicted_label.cpu().data.numpy()[0][0]))
-#             instance_level = list(zip(instance_labels.numpy()[0].tolist(),
-#                                  np.round(attention_weights.cpu().data.numpy()[0], decimals=3).tolist()))
-
-#             print('\nTrue Bag Label, Predicted Bag Label: {}\n'
-#                   'True Instance Labels, Attention Weights: {}'.format(bag_level, instance_level))
-
-#     test_error /= len(test_loader)
-#     test_loss /= len(test_loader)
-
-#     print('\nTest Set, Loss: {:.4f}, Test error: {:.4f}'.format(test_loss.cpu().numpy()[0], test_error))
-
-
+    print("Classification report: \n", (classification_report(np.array(y), np.array(y2))))
+    print(metrics.roc_auc_score(np.array(y), y1, average='macro'))
+    print(metrics.f1_score(np.array(y), np.array(y2), average='macro'))
+    print(metrics.f1_score(np.array(y), np.array(y2), average='micro'))
 if __name__ == "__main__":
-    print('Start Training')
-    for epoch in range(1, args.epochs + 1):
-        train(epoch)
-    #print('Start Testing')
-    # test()
+    # print(torch.__version__)
+    print('Start Testing')
+    test()

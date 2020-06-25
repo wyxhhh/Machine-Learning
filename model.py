@@ -16,7 +16,7 @@ class FocalLoss(nn.Module):
                     .format(target.size(), input.size()))
 
         max_val = (-input).clamp(min=0)
-        loss = input - input * target + max_val +             ((-max_val).exp() + (-input - max_val).exp()).log()
+        loss = input - input * target + max_val + ((-max_val).exp() + (-input - max_val).exp()).log()
 
         invprobs = F.logsigmoid(-input * (target * 2.0 - 1.0))
         loss = (invprobs * self.gamma).exp() * loss
@@ -41,7 +41,7 @@ class Attention(nn.Module):
         )
 
         self.proj = nn.Sequential(
-            nn.Linear(self.L*self.K, 100),
+            nn.Linear(self.L*self.K, 10),
             nn.ReLU(inplace=False),
             nn.Linear(100, 10),
             nn.Sigmoid()
@@ -59,13 +59,12 @@ class Attention(nn.Module):
         M = torch.mm(A, H)  # KxL
         out = self.proj(M)
 
-        return torch.sigmoid(out)
+        return out
 
     # AUXILIARY METHODS
     def calculate_classification_error(self, X, Y):
         # Y = Y.float()
-        Y_prob = self.forward(X)[0]
-        Y = Y[0]
+        Y_prob = self.forward(X)
         Y_hat = []
         # p = np.sum(np.array(Y))
         # print(p)
@@ -73,7 +72,7 @@ class Attention(nn.Module):
             Y_hat.append(torch.ge(Y_prob[i], 0.5).float())
         error = 0
         for i in range(len(Y_hat)):
-            if int(Y_hat[i]) != int(Y[i]):
+            if int(Y_hat[i].item()) != int(Y[i].item()):
                 error += 1
                 break
         #     error += 1. - Y_hat[i].eq(Y[i].float).cpu().float().mean().item()
@@ -100,6 +99,7 @@ class Attention(nn.Module):
         Y_prob = torch.clamp(Y_prob, min=1e-5, max=1. - 1e-5)
         # print(Y_prob)
         # print(Y)
+        Y = Y.view(1,10)
         output = loss(Y_prob, Y)
         #print(output)
         return output
@@ -149,23 +149,25 @@ class GatedAttention(nn.Module):
         A = F.softmax(A, dim=1)  # softmax over N
         M = torch.mm(A, H)  # KxL
         out = self.proj(M)
-        return torch.sigmoid(out)
+        return out
 
 
     # AUXILIARY METHODS
     def calculate_classification_error(self, X, Y):
         # Y = Y.float()
-        Y_prob = self.forward(X)[0]
+        Y_prob = self.forward(X)
         #Y = Y[0]
         #print(Y)
         Y_hat = []
         # p = np.sum(np.array(Y))
         # print(p)
+        Y = Y.view(10)
         for i in range(len(Y_prob)):
             Y_hat.append(torch.ge(Y_prob[i], 0.5).float())
         error = 0
+        # print(Y_hat)
         for i in range(len(Y_hat)):
-            if int(Y_hat[i].item()) != int(Y[i].item()):
+            if int(Y_hat[0][i].item()) != int(Y[i].item()):
                 error += 1
                 break
         #     error += 1. - Y_hat[i].eq(Y[i].float).cpu().float().mean().item()
